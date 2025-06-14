@@ -88,14 +88,20 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+static int16_t data_raw_acceleration[3];
 static uint8_t whoamI, rst;
-uint8_t neai_similarity = 0, neai_state = 0;
+uint8_t neai_similarity = 0, neai_state = 0, first_comm = 1;
+uint16_t sample_index = 0, id_class = 0;
 volatile uint8_t drdy = 0;
-uint16_t data_left = (uint16_t) SAMPLES, number_read = 0, neai_buffer_ptr = 0, neai_cnt = 0;
+uint16_t data_left = (uint16_t) SAMPLES, number_read = 0, neai_buffer_ptr = 0, neai_cnt = 0, drdy_counter = 0;
 float neai_time = 0.0;
 static float neai_buffer[AXIS * SAMPLES] = {0.0};
 stmdev_ctx_t dev_ctx;
 
+#if (NEAI_MODE)
+static float class_output_buffer[NB_CLASSES];
+const char *id2class[NB_CLASSES + 1] = {"unknown", "diagonal", "static", "up_back" };
+#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
