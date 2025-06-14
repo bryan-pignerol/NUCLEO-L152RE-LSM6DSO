@@ -1,0 +1,17 @@
+../Core/Src/main.c:128:5:main	7
+../Core/Src/main.c:241:6:SystemClock_Config	3
+../Core/Src/main.c:285:13:MX_I2C1_Init	2
+../Core/Src/main.c:319:13:MX_USART2_UART_Init	2
+../Core/Src/main.c:352:13:MX_GPIO_Init	1
+../Core/Src/main.c:401:5:__io_putchar	1
+../Core/Src/main.c:414:6:HAL_GPIO_EXTI_Callback	2
+../Core/Src/main.c:433:16:platform_write	1
+../Core/Src/main.c:450:16:platform_read	1
+../Core/Src/main.c:465:13:lsm6dso_initialize	1
+../Core/Src/main.c:488:13:lsm6dso_initialize_basics	3
+../Core/Src/main.c:517:13:lsm6dso_initialize_fifo	1
+../Core/Src/main.c:551:13:lsm6dso_get_buffer_from_fifo	7
+../Core/Src/main.c:591:14:lsm6dso_convert_gyro_data_to_mdps	1
+../Core/Src/main.c:629:14:lsm6dso_convert_accel_data_to_mg	1
+../Core/Src/main.c:665:13:iks01a3_i2c_stuck_quirk	2
+../Core/Src/main.c:699:6:Error_Handler	1
