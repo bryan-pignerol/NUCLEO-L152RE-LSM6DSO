@@ -5,23 +5,23 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.c 
+../Drivers/display/max7219_Yncrea2.c 
 
 OBJS += \
-./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.o 
+./Drivers/display/max7219_Yncrea2.o 
 
 C_DEPS += \
-./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.d 
+./Drivers/display/max7219_Yncrea2.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
-Drivers/Sensors/lsm6dso-pid/%.o Drivers/Sensors/lsm6dso-pid/%.su Drivers/Sensors/lsm6dso-pid/%.cyclo: ../Drivers/Sensors/lsm6dso-pid/%.c Drivers/Sensors/lsm6dso-pid/subdir.mk
+Drivers/display/%.o Drivers/display/%.su Drivers/display/%.cyclo: ../Drivers/display/%.c Drivers/display/subdir.mk
 	arm-none-eabi-gcc "$<" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32L152xE -c -I../Core/Inc -I../Drivers/display -I../Drivers/Sensors/lsm6dso-pid -I../Drivers/STM32L1xx_HAL_Driver/Inc -I../Drivers/STM32L1xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32L1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfloat-abi=soft -mthumb -o "$@"
 
-clean: clean-Drivers-2f-Sensors-2f-lsm6dso-2d-pid
+clean: clean-Drivers-2f-display
 
-clean-Drivers-2f-Sensors-2f-lsm6dso-2d-pid:
-	-$(RM) ./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.cyclo ./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.d ./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.o ./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.su
+clean-Drivers-2f-display:
+	-$(RM) ./Drivers/display/max7219_Yncrea2.cyclo ./Drivers/display/max7219_Yncrea2.d ./Drivers/display/max7219_Yncrea2.o ./Drivers/display/max7219_Yncrea2.su
 
-.PHONY: clean-Drivers-2f-Sensors-2f-lsm6dso-2d-pid
+.PHONY: clean-Drivers-2f-display
 

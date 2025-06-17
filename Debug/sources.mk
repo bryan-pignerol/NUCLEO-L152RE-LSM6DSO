@@ -26,4 +26,5 @@ Core/Src \
 Core/Startup \
 Drivers/STM32L1xx_HAL_Driver/Src \
 Drivers/Sensors/lsm6dso-pid \
+Drivers/display \
 

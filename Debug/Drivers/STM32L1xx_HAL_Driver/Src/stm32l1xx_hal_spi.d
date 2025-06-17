@@ -1,5 +1,5 @@
-Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_flash.o: \
- ../Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_flash.c \
+Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_spi.o: \
+ ../Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_spi.c \
  ../Drivers/STM32L1xx_HAL_Driver/Inc/stm32l1xx_hal.h \
  ../Core/Inc/stm32l1xx_hal_conf.h \
  ../Drivers/STM32L1xx_HAL_Driver/Inc/stm32l1xx_hal_rcc.h \

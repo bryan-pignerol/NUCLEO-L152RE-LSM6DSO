@@ -18,5 +18,7 @@
 "./Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_pwr_ex.o"
 "./Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_rcc.o"
 "./Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_rcc_ex.o"
+"./Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_spi.o"
 "./Drivers/STM32L1xx_HAL_Driver/Src/stm32l1xx_hal_uart.o"
 "./Drivers/Sensors/lsm6dso-pid/lsm6dso_reg.o"
+"./Drivers/display/max7219_Yncrea2.o"
