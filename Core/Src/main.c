@@ -90,6 +90,8 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+SPI_HandleTypeDef hspi1;
+
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -114,6 +116,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len);
 static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
@@ -166,6 +169,7 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_USART2_UART_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
   lsm6dso_initialize();
   if (NEAI_MODE) {
@@ -194,6 +198,10 @@ int main(void)
 #if (NEAI_MODE)
 			  neai_state = neai_classification(neai_buffer, class_output_buffer, &id_class);
 			  printf("Class: %s. NEAI classification return: %d.\r\n", id2class[id_class], neai_state);
+
+			  if (!strcmp(id2class[id_class], "static")) {
+				  printf("test\r\n");
+			  }
 #else
 			  for (uint16_t i = 0; i < AXIS * SAMPLES; i++) {
 				  printf("%.3f ", neai_buffer[i]);
@@ -208,67 +216,6 @@ int main(void)
 			  lsm6dso_xl_data_rate_set(&dev_ctx, ACCELEROMETER_ODR);
 		  }
 	  }
-
-	/*
-	uint8_t wtm_flag = 0, status2 = 0;
-	uint16_t num = 0;
-	if (drdy) {
-	  // Reset data ready condition
-	  drdy = 0;
-	  lsm6dso_read_reg(&dev_ctx, LSM6DSO_FIFO_STATUS2, &status2, 1);
-      wtm_flag = status2 >> 7;
-	  if (wtm_flag) {
-		lsm6dso_fifo_data_level_get(&dev_ctx, &num);
-		if (data_left < num) {
-	      num = data_left;
-		}
-		lsm6dso_get_buffer_from_fifo(num);
-		data_left -= num;
-		number_read += num;
-		if (data_left == 0) {
-	      lsm6dso_fifo_mode_set(&dev_ctx, LSM6DSO_BYPASS_MODE);
-#if NEAI_MODE
-		  uint32_t cycles_cnt = 0;
-		  if (neai_cnt < NEAI_LEARN_NB) {
-			neai_cnt++;
-			KIN1_ResetCycleCounter();
-			neai_state = neai_anomalydetection_learn(neai_buffer);
-			cycles_cnt = KIN1_GetCycleCounter();
-			neai_time = (cycles_cnt * 1000000.0) / HAL_RCC_GetSysClockFreq();
-			printf("Learn: %d / %d. NEAI learn return: %d. Cycles counter: %ld = %.1f µs at %ld Hz.\n",
-				  neai_cnt, NEAI_LEARN_NB, neai_state, cycles_cnt, neai_time, HAL_RCC_GetSysClockFreq());
-		  }
-		  else {
-			KIN1_ResetCycleCounter();
-			neai_state = neai_anomalydetection_detect(neai_buffer, &neai_similarity);
-			cycles_cnt = KIN1_GetCycleCounter();
-			neai_time = (cycles_cnt * 1000000.0) / HAL_RCC_GetSysClockFreq();
-			printf("Similarity: %d / 100. NEAI detect return: %d. Cycles counter: %ld = %.1f µs at %ld Hz.\n",
-				  neai_similarity, neai_state, cycles_cnt, neai_time, HAL_RCC_GetSysClockFreq());
-		  }
-#else
-		  for (uint16_t i = 0; i < AXIS * SAMPLES; i++) {
-			printf("%.3f ", neai_buffer[i]);
-		  }
-		  printf("\n");
-#endif
-		  data_left = (uint16_t) SAMPLES;
-		  number_read = 0;
-		  memset(neai_buffer, 0x00, AXIS * SAMPLES * sizeof(float));
-		  if (SAMPLES <= MAX_FIFO_SIZE) {
-			lsm6dso_fifo_watermark_set(&dev_ctx, (uint16_t) SAMPLES);
-		  }
-		  else {
-			lsm6dso_fifo_watermark_set(&dev_ctx, (uint16_t) MAX_FIFO_SIZE);
-		  }
-		  lsm6dso_fifo_mode_set(&dev_ctx, LSM6DSO_FIFO_MODE);
-		}
-		else if (data_left < MAX_FIFO_SIZE) {
-		  lsm6dso_fifo_watermark_set(&dev_ctx, data_left);
-		}
-	  }
-	}
-  	*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -335,7 +282,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.ClockSpeed = 400;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -350,6 +297,44 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
 
 }
 
@@ -404,7 +389,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, L0_Pin|L1_Pin|L2_Pin|L3_Pin
+                          |L4_Pin|L5_Pin|L6_Pin|L7_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -412,12 +401,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : L0_Pin L1_Pin L2_Pin L3_Pin
+                           L4_Pin L5_Pin L6_Pin L7_Pin */
+  GPIO_InitStruct.Pin = L0_Pin|L1_Pin|L2_Pin|L3_Pin
+                          |L4_Pin|L5_Pin|L6_Pin|L7_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SPI_CS_Pin */
+  GPIO_InitStruct.Pin = SPI_CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SPI_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : GYRO_ACC_INT_Pin */
   GPIO_InitStruct.Pin = GYRO_ACC_INT_Pin;
