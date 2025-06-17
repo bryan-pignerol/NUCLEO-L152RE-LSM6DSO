@@ -24,7 +24,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "lsm6dso_reg.h"
-#include "cycle_dwt.h"
+#include "knowledge.h"
 #include "NanoEdgeAI.h"
 
 /* USER CODE END Includes */
@@ -67,12 +67,17 @@
 #endif
 /************************************************************ Datalogger / NEAI mode part ************************************************************/
 #ifndef NEAI_MODE
-  #define NEAI_MODE                     0                       /* 0: Datalogger mode, 1: NEAI functions mode */
+  #define NEAI_MODE                     1                       /* 0: Datalogger mode, 1: NEAI functions mode */
 #endif
-#if (NEAI_MODE == 1)
-  #ifndef NEAI_LEARN_NB
-    #define NEAI_LEARN_NB               20                      /* Number of buffers to be learn by the NEAI library */
-  #endif
+// #if (NEAI_MODE == 1)
+//   #ifndef NEAI_LEARN_NB
+//     #define NEAI_LEARN_NB               20                      /* Number of buffers to be learn by the NEAI library */
+//   #endif
+// #endif
+#if (NEAI_MODE)
+#ifndef NB_CLASSES
+#define NB_CLASSES 3 /* Number of NEAI classes */
+#endif
 #endif
 /************************************************************ NEAI algorithm defines end ************************************************************/
 /* USER CODE END PD */
@@ -93,14 +98,14 @@ static uint8_t whoamI, rst;
 uint8_t neai_similarity = 0, neai_state = 0, first_comm = 1;
 uint16_t sample_index = 0, id_class = 0;
 volatile uint8_t drdy = 0;
-uint16_t data_left = (uint16_t) SAMPLES, number_read = 0, neai_buffer_ptr = 0, neai_cnt = 0, drdy_counter = 0;
+uint16_t neai_cnt = 0, neai_buffer_ptr = 0, drdy_counter = 0;
 float neai_time = 0.0;
-static float neai_buffer[AXIS * SAMPLES] = {0.0};
+float neai_buffer[AXIS * SAMPLES] = {0};
 stmdev_ctx_t dev_ctx;
 
 #if (NEAI_MODE)
 static float class_output_buffer[NB_CLASSES];
-const char *id2class[NB_CLASSES + 1] = {"unknown", "diagonal", "static", "up_back" };
+const char *id2class[NB_CLASSES + 1] = {"unknown", "up-down", "toward-backward", "circle" };
 #endif
 /* USER CODE END PV */
 
@@ -162,11 +167,9 @@ int main(void)
   MX_I2C1_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  KIN1_InitCycleCounter();
-  KIN1_EnableCycleCounter();
   lsm6dso_initialize();
   if (NEAI_MODE) {
-    neai_state = neai_anomalydetection_init();
+    neai_state = neai_classification_init(knowledge);
     printf("Initialize NEAI library. NEAI init return: %d.\n",  neai_state);
   }
   /* USER CODE END 2 */
@@ -175,10 +178,42 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if (drdy) {
+		  /* Reset data ready condition */
+		  drdy = 0;
+		  /* Read acceleration data */
+		  memset(data_raw_acceleration, 0x00, 3 * sizeof(int16_t));
+		  lsm6dso_acceleration_raw_get(&dev_ctx, data_raw_acceleration);
+		  for (uint8_t i = 0; i < AXIS; i++) {
+			  neai_buffer[(AXIS * drdy_counter) + i] = lsm6dso_convert_accel_data_to_mg(data_raw_acceleration[i]);
+		  }
+		  drdy_counter++;
+		  if (drdy_counter >= SAMPLES) {
+			  /* Set Output Data Rate */
+			  lsm6dso_xl_data_rate_set(&dev_ctx, LSM6DSO_XL_ODR_OFF);
+#if (NEAI_MODE)
+			  neai_state = neai_classification(neai_buffer, class_output_buffer, &id_class);
+			  printf("Class: %s. NEAI classification return: %d.\r\n", id2class[id_class], neai_state);
+#else
+			  for (uint16_t i = 0; i < AXIS * SAMPLES; i++) {
+				  printf("%.3f ", neai_buffer[i]);
+			  }
+			  printf("\r\n");
+#endif
+			  /* Reset drdy_counter in order to get a new buffer */
+			  drdy_counter = 0;
+			  /* Clean neai buffer */
+			  memset(neai_buffer, 0x00, AXIS * SAMPLES * sizeof(float));
+			  /* Set Output Data Rate */
+			  lsm6dso_xl_data_rate_set(&dev_ctx, ACCELEROMETER_ODR);
+		  }
+	  }
+
+	/*
 	uint8_t wtm_flag = 0, status2 = 0;
 	uint16_t num = 0;
 	if (drdy) {
-	  /* Reset data ready condition */
+	  // Reset data ready condition
 	  drdy = 0;
 	  lsm6dso_read_reg(&dev_ctx, LSM6DSO_FIFO_STATUS2, &status2, 1);
       wtm_flag = status2 >> 7;
@@ -233,6 +268,7 @@ int main(void)
 		}
 	  }
 	}
+  	*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -543,6 +579,13 @@ static void lsm6dso_initialize_fifo()
   /* Need to enable interrupt pin when wtm is reached */
   uint8_t ctrl = 0x08;
   lsm6dso_write_reg(&dev_ctx, LSM6DSO_INT1_CTRL, (uint8_t *) &ctrl, 1);
+
+  /* Configuration de l'interrupt DATA_READY sur INT1 */
+  lsm6dso_pin_int1_route_t int1_route = {0};
+  int1_route.drdy_xl = 1;  // Active l'interrupt data-ready pour l'accéléromètre
+  lsm6dso_pin_int1_route_set(&dev_ctx, int1_route);
+
+  printf("Interrupt DATA_READY configuree sur INT1\n");
 }
 
 /*
