@@ -31,10 +31,10 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*
 #include <stdint.h>
 
 /* Define */
-#define NEAI_ID "684d565f5dc907eeffc20ab5"
+#define NEAI_ID "685128a35dc907eeffc2264b"
 #define AXIS_NUMBER 3
 #define DATA_INPUT_USER 128
-#define CLASS_NUMBER 3
+#define CLASS_NUMBER 5
 
 #ifndef __NEAI_STATE__
 #define __NEAI_STATE__
@@ -90,6 +90,8 @@ const char *id2class[CLASS_NUMBER + 1] = { // Buffer for mapping class id to cla
 	"unknown",
 	"up-down",
 	"toward-backward",
+	"static",
+	"infinity",
 	"circle",
 };
 */
