@@ -105,7 +105,7 @@ stmdev_ctx_t dev_ctx;
 
 #if (NEAI_MODE)
 static float class_output_buffer[NB_CLASSES];
-const char *id2class[NB_CLASSES + 1] = {"unknown", "up-down", "toward-backward", "circle" };
+const char *id2class[NB_CLASSES + 2] = {"unknown", "up-down", "forward-backward", "static", "circle"};
 #endif
 /* USER CODE END PV */
 
