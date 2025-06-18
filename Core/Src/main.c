@@ -21,11 +21,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <string.h>
-#include <stdio.h>
 #include "lsm6dso_reg.h"
 #include "knowledge.h"
 #include "NanoEdgeAI.h"
+#include "max7219_Yncrea2.h"
 
 /* USER CODE END Includes */
 
@@ -88,9 +87,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc;
+
 I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
+
+TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
 
@@ -104,6 +107,9 @@ uint16_t neai_cnt = 0, neai_buffer_ptr = 0, drdy_counter = 0;
 float neai_time = 0.0;
 float neai_buffer[AXIS * SAMPLES] = {0};
 stmdev_ctx_t dev_ctx;
+uint8_t previous_class = 0;  // Pour détecter les changements de mouvement
+uint32_t last_movement_time = 0;  // Pour éviter les exécutions trop fréquentes
+uint8_t debounce_flag = 0;
 
 #if (NEAI_MODE)
 static float class_output_buffer[NB_CLASSES];
@@ -117,6 +123,8 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM6_Init(void);
+static void MX_ADC_Init(void);
 /* USER CODE BEGIN PFP */
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len);
 static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
@@ -170,7 +178,10 @@ int main(void)
   MX_I2C1_Init();
   MX_USART2_UART_Init();
   MX_SPI1_Init();
+  MX_TIM6_Init();
+  MX_ADC_Init();
   /* USER CODE BEGIN 2 */
+  MAX7219_Init();
   lsm6dso_initialize();
   if (NEAI_MODE) {
     neai_state = neai_classification_init(knowledge);
@@ -198,10 +209,7 @@ int main(void)
 #if (NEAI_MODE)
 			  neai_state = neai_classification(neai_buffer, class_output_buffer, &id_class);
 			  printf("Class: %s. NEAI classification return: %d.\r\n", id2class[id_class], neai_state);
-
-			  if (!strcmp(id2class[id_class], "static")) {
-				  printf("test\r\n");
-			  }
+			  handleMovementActions();
 #else
 			  for (uint16_t i = 0; i < AXIS * SAMPLES; i++) {
 				  printf("%.3f ", neai_buffer[i]);
@@ -264,6 +272,61 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC_Init(void)
+{
+
+  /* USER CODE BEGIN ADC_Init 0 */
+
+  /* USER CODE END ADC_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC_Init 1 */
+
+  /* USER CODE END ADC_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc.Instance = ADC1;
+  hadc.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc.Init.LowPowerAutoWait = ADC_AUTOWAIT_DISABLE;
+  hadc.Init.LowPowerAutoPowerOff = ADC_AUTOPOWEROFF_DISABLE;
+  hadc.Init.ChannelsBank = ADC_CHANNELS_BANK_A;
+  hadc.Init.ContinuousConvMode = DISABLE;
+  hadc.Init.NbrOfConversion = 1;
+  hadc.Init.DiscontinuousConvMode = DISABLE;
+  hadc.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc.Init.DMAContinuousRequests = DISABLE;
+  if (HAL_ADC_Init(&hadc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_4CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC_Init 2 */
+
+  /* USER CODE END ADC_Init 2 */
+
 }
 
 /**
@@ -335,6 +398,44 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 31999;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 200;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
 
 }
 
@@ -417,6 +518,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SPI_CS_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : BP1_increaseSpeed_Pin BP2_reduceSpeed_Pin */
+  GPIO_InitStruct.Pin = BP1_increaseSpeed_Pin|BP2_reduceSpeed_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : GYRO_ACC_INT_Pin */
   GPIO_InitStruct.Pin = GYRO_ACC_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -426,6 +533,9 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -453,11 +563,27 @@ int __io_putchar(int ch)
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  switch(GPIO_Pin) {
-  case GYRO_ACC_INT_Pin:
-    drdy = 1;
-    break;
-  }
+	switch(GPIO_Pin) {
+	  case GYRO_ACC_INT_Pin:
+		  drdy = 1;
+		  break;
+
+	  case BP1_increaseSpeed_Pin:
+		  if (!debounce_flag) {
+			  debounce_flag = 1;
+			  __HAL_TIM_SET_COUNTER(&htim6, 0);
+			  HAL_TIM_Base_Start_IT(&htim6);
+			  printf("Motor speed increased\r\n");
+		  }
+
+	  case BP2_reduceSpeed_Pin:
+		  if (!debounce_flag) {
+			  debounce_flag = 1;
+			  __HAL_TIM_SET_COUNTER(&htim6, 0);
+			  HAL_TIM_Base_Start_IT(&htim6);
+			  printf("Motor speed reduced\r\n");
+		  }
+	}
 }
 
 /*
@@ -736,6 +862,91 @@ static void iks01a3_i2c_stuck_quirk(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOB_CLK_DISABLE();
 }
+
+
+void clearAllLEDs(void) {
+    uint16_t L_Pin[8] = {L0_Pin, L1_Pin, L2_Pin, L3_Pin, L4_Pin, L5_Pin, L6_Pin, L7_Pin};
+    for (int i = 0; i < 8; i++) {
+        HAL_GPIO_WritePin(L0_GPIO_Port, L_Pin[i], GPIO_PIN_RESET);
+    }
+    MAX7219_Clear();
+}
+
+
+void staticSequence(void) {
+	uint16_t L_Pin[8] = {L0_Pin, L1_Pin, L2_Pin, L3_Pin, L4_Pin, L5_Pin, L6_Pin, L7_Pin};
+
+	MAX7219_DisplayChar(1, 'S');
+	MAX7219_DisplayChar(2, 'T');
+	MAX7219_DisplayChar(3, 'A');
+	MAX7219_DisplayChar(4, 'T');
+	for (int i = 0; i < 8; i++) {
+		HAL_GPIO_WritePin(L0_GPIO_Port, L_Pin[i], GPIO_PIN_SET);
+	}
+}
+
+
+void forwardBackwardSequence(void) {
+	uint16_t L_Pin[8] = {L0_Pin, L1_Pin, L2_Pin, L3_Pin, L4_Pin, L5_Pin, L6_Pin, L7_Pin};
+
+	MAX7219_DisplayChar(1, 'F');
+	MAX7219_DisplayChar(2, 'O');
+	MAX7219_DisplayChar(3, 'B');
+	MAX7219_DisplayChar(4, 'A');
+
+	for (int i = 0; i < 2; i++) {
+		for (int j = 7; j > -1; j--) {
+			HAL_GPIO_TogglePin(L0_GPIO_Port, L_Pin[j]);
+			HAL_Delay(50);
+		}
+	}
+	for (int i = 0; i < 2; i++) {
+		for (int j = 0; j < 8; j++) {
+			HAL_GPIO_TogglePin(L0_GPIO_Port, L_Pin[j]);
+			HAL_Delay(50);
+		}
+	}
+}
+
+/* Fonction principale de gestion des mouvements */
+void handleMovementActions(void) {
+    uint32_t current_time = HAL_GetTick();
+
+    // Éviter les exécutions trop fréquentes (minimum 2 secondes entre les actions)
+    if (current_time - last_movement_time < 2000) {
+        return;
+    }
+	clearAllLEDs();  // Nettoyer l'affichage précédent
+	HAL_Delay(100);
+
+	// Exécuter l'action correspondant au mouvement détecté
+	switch(id_class) {
+		case 1: // "up-down"
+			// upDownSequence();
+			break;
+
+		case 2: // "forward-backward"
+			forwardBackwardSequence();
+			break;
+
+		case 3: // "static"
+			staticSequence();
+			break;
+
+		case 4: // "circle"
+			// circleSequence();
+			break;
+
+		case 0: // "unknown"
+		default:
+			// unknownSequence();
+			break;
+	}
+
+	previous_class = id_class;
+	last_movement_time = current_time;
+}
+
 
 /* USER CODE END 4 */
 

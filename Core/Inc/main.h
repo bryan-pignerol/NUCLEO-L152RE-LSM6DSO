@@ -31,7 +31,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -53,12 +54,16 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void clearAllLEDs(void);
+void staticSequence(void);
+void forwardBackwardSequence(void);
+void handleMovementActions(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define B1_EXTI_IRQn EXTI15_10_IRQn
 #define USART_TX_Pin GPIO_PIN_2
 #define USART_TX_GPIO_Port GPIOA
 #define USART_RX_Pin GPIO_PIN_3
@@ -87,6 +92,12 @@ void Error_Handler(void);
 #define L7_GPIO_Port GPIOB
 #define SPI_CS_Pin GPIO_PIN_8
 #define SPI_CS_GPIO_Port GPIOA
+#define BP1_increaseSpeed_Pin GPIO_PIN_11
+#define BP1_increaseSpeed_GPIO_Port GPIOA
+#define BP1_increaseSpeed_EXTI_IRQn EXTI15_10_IRQn
+#define BP2_reduceSpeed_Pin GPIO_PIN_12
+#define BP2_reduceSpeed_GPIO_Port GPIOA
+#define BP2_reduceSpeed_EXTI_IRQn EXTI15_10_IRQn
 #define GYRO_ACC_INT_Pin GPIO_PIN_5
 #define GYRO_ACC_INT_GPIO_Port GPIOB
 #define GYRO_ACC_INT_EXTI_IRQn EXTI9_5_IRQn
