@@ -50,14 +50,22 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 void clearAllLEDs(void);
+void upDownSequence(void);
 void staticSequence(void);
 void forwardBackwardSequence(void);
+void circleSequence(void);
 void handleMovementActions(void);
+void buzzer(uint8_t buzzerState);
+void motor(uint8_t motorState);
+void TIM3_IRQ(void);
+void adcFunction(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -98,6 +106,8 @@ void handleMovementActions(void);
 #define BP2_reduceSpeed_Pin GPIO_PIN_12
 #define BP2_reduceSpeed_GPIO_Port GPIOA
 #define BP2_reduceSpeed_EXTI_IRQn EXTI15_10_IRQn
+#define M1_Pin GPIO_PIN_4
+#define M1_GPIO_Port GPIOB
 #define GYRO_ACC_INT_Pin GPIO_PIN_5
 #define GYRO_ACC_INT_GPIO_Port GPIOB
 #define GYRO_ACC_INT_EXTI_IRQn EXTI9_5_IRQn

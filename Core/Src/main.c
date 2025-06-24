@@ -93,6 +93,7 @@ I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
@@ -110,6 +111,9 @@ stmdev_ctx_t dev_ctx;
 uint8_t previous_class = 0;  // Pour détecter les changements de mouvement
 uint32_t last_movement_time = 0;  // Pour éviter les exécutions trop fréquentes
 uint8_t debounce_flag = 0;
+uint8_t flag_irq = 0;
+uint32_t flag_ccr1 = 0;
+uint32_t digitalValue = 0;
 
 #if (NEAI_MODE)
 static float class_output_buffer[NB_CLASSES];
@@ -125,6 +129,7 @@ static void MX_USART2_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_ADC_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len);
 static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
@@ -180,6 +185,7 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM6_Init();
   MX_ADC_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   MAX7219_Init();
   lsm6dso_initialize();
@@ -402,6 +408,70 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 31;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 2278;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 500;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.Pulse = 1845;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
   * @brief TIM6 Initialization Function
   * @param None
   * @retval None
@@ -573,7 +643,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			  debounce_flag = 1;
 			  __HAL_TIM_SET_COUNTER(&htim6, 0);
 			  HAL_TIM_Base_Start_IT(&htim6);
-			  printf("Motor speed increased\r\n");
+			  if(TIM3->CCR1 < 1000) {
+				  TIM3->CCR1 = TIM3->CCR1 + 125;
+				  printf("Motor speed:%lu\r\n", TIM3->CCR1);
+			  } else {
+				  printf("Motor speed at already at max speed:%lu\r\n", TIM3->CCR1);
+			  }
+			  flag_ccr1 = TIM3->CCR1;
 		  }
 
 	  case BP2_reduceSpeed_Pin:
@@ -581,7 +657,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			  debounce_flag = 1;
 			  __HAL_TIM_SET_COUNTER(&htim6, 0);
 			  HAL_TIM_Base_Start_IT(&htim6);
-			  printf("Motor speed reduced\r\n");
+			  if(TIM3->CCR1 > 125) {
+				  TIM3->CCR1 = TIM3->CCR1 - 125;
+				  printf("Motor speed:%lu\r\n", TIM3->CCR1);
+			  } else {
+				  printf("Motor speed at already at min speed:%lu\r\n", TIM3->CCR1);
+			  }
+			  flag_ccr1 = TIM3->CCR1;
 		  }
 	}
 }
@@ -873,6 +955,41 @@ void clearAllLEDs(void) {
 }
 
 
+void upDownSequence(void) {
+	uint16_t L_Pin[8] = {L0_Pin, L1_Pin, L2_Pin, L3_Pin, L4_Pin, L5_Pin, L6_Pin, L7_Pin};
+
+	MAX7219_DisplayChar(1, 'U');
+	MAX7219_DisplayChar(2, 'P');
+	MAX7219_DisplayChar(3, 'D');
+	MAX7219_DisplayChar(4, 'O');
+
+	HAL_GPIO_WritePin(L0_GPIO_Port, L0_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(L1_GPIO_Port, L1_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L2_GPIO_Port, L2_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(L3_GPIO_Port, L3_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L4_GPIO_Port, L4_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(L5_GPIO_Port, L5_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L6_GPIO_Port, L6_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(L7_GPIO_Port, L7_Pin, GPIO_PIN_RESET);
+
+	for (int i = 0; i < 8; i++) {
+		for (int j = 0; j < 8; j++) {
+			HAL_GPIO_TogglePin(L0_GPIO_Port, L_Pin[j]);
+		}
+		HAL_Delay(500);
+	}
+
+	HAL_GPIO_WritePin(L0_GPIO_Port, L0_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L1_GPIO_Port, L1_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L2_GPIO_Port, L2_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L3_GPIO_Port, L3_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L4_GPIO_Port, L4_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L5_GPIO_Port, L5_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L6_GPIO_Port, L6_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L7_GPIO_Port, L7_Pin, GPIO_PIN_RESET);
+}
+
+
 void staticSequence(void) {
 	uint16_t L_Pin[8] = {L0_Pin, L1_Pin, L2_Pin, L3_Pin, L4_Pin, L5_Pin, L6_Pin, L7_Pin};
 
@@ -908,9 +1025,45 @@ void forwardBackwardSequence(void) {
 	}
 }
 
+
+void circleSequence(void) {
+	uint16_t L_Pin[8] = {L0_Pin, L1_Pin, L2_Pin, L3_Pin, L4_Pin, L5_Pin, L6_Pin, L7_Pin};
+
+	MAX7219_DisplayChar(1, 'C');
+	MAX7219_DisplayChar(2, 'I');
+	MAX7219_DisplayChar(3, 'R');
+	MAX7219_DisplayChar(4, 'C');
+
+	HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
+	HAL_Delay(500);
+	HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_2);
+	HAL_Delay(500);
+	HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
+	HAL_Delay(500);
+	HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_2);
+	HAL_Delay(500);
+
+	HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
+	HAL_Delay(500);
+	HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_1);
+	HAL_Delay(500);
+	HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
+	HAL_Delay(500);
+	HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_1);
+	HAL_Delay(500);
+
+
+}
+
+
 /* Fonction principale de gestion des mouvements */
 void handleMovementActions(void) {
     uint32_t current_time = HAL_GetTick();
+    uint8_t buzzerState = 0;
+    uint8_t motorState = 0;
+
+    buzzer(buzzerState);
+    motor(motorState);
 
     // Éviter les exécutions trop fréquentes (minimum 2 secondes entre les actions)
     if (current_time - last_movement_time < 2000) {
@@ -922,29 +1075,126 @@ void handleMovementActions(void) {
 	// Exécuter l'action correspondant au mouvement détecté
 	switch(id_class) {
 		case 1: // "up-down"
-			// upDownSequence();
+			buzzerState = 1;
+			motorState = 0;
+			buzzer(buzzerState);
+			upDownSequence();
 			break;
 
 		case 2: // "forward-backward"
+			buzzerState = 0;
+			motorState = 1;
+			motor(motorState);
 			forwardBackwardSequence();
 			break;
 
 		case 3: // "static"
+			buzzerState = 0;
+			motorState = 0;
+			buzzer(buzzerState);
+			motor(motorState);
 			staticSequence();
 			break;
 
 		case 4: // "circle"
-			// circleSequence();
+			buzzerState = 0;
+			motorState = 0;
+			circleSequence();
 			break;
 
 		case 0: // "unknown"
 		default:
 			// unknownSequence();
+			buzzerState = 0;
+			motorState = 0;
 			break;
 	}
 
+	adcFunction();
+
 	previous_class = id_class;
 	last_movement_time = current_time;
+}
+
+
+void buzzer(uint8_t buzzerState) {
+	if(buzzerState) {
+		HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_2);
+	} else {
+		HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_2);
+	}
+}
+
+
+
+void motor(uint8_t motorState) {
+	if (motorState) {
+		HAL_TIM_PWM_Start_IT(&htim3, TIM_CHANNEL_1);
+	} else {
+		HAL_TIM_PWM_Stop_IT(&htim3, TIM_CHANNEL_1);
+	}
+}
+
+
+void TIM3_IRQ(void) {
+	HAL_GPIO_TogglePin(L1_GPIO_Port, L1_Pin);
+	if (flag_irq) {
+		flag_irq = 0;
+	} else {
+		flag_irq = 1;
+	}
+}
+
+
+void adcFunction(void) {
+	HAL_ADC_Start_IT(&hadc);
+	HAL_ADC_PollForConversion(&hadc, 1000);
+	digitalValue = HAL_ADC_GetValue(&hadc);
+	HAL_ADC_Stop_IT(&hadc);
+	printf("Digital value:%lu\r\n", digitalValue);
+	if(digitalValue > 0) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0);
+	}
+
+	if(digitalValue > 300) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.1);
+	}
+
+	if(digitalValue > 600) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.2);
+	}
+
+	if(digitalValue > 900) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.3);
+	}
+
+	if(digitalValue > 1200) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.4);
+	}
+
+	if(digitalValue > 1500) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.5);
+	}
+
+	if(digitalValue > 1800) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.6);
+	}
+
+	if(digitalValue > 2100) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.7);
+	}
+
+	if(digitalValue > 2400) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.8);
+	}
+
+	if(digitalValue > 2700) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 0.9);
+	}
+
+	if(digitalValue > 3000) {
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 1845 * 1);
+	}
 }
 
 
