@@ -9,7 +9,9 @@ utilisant un accéléromètre LSM6DSO et l'IA embarquée NanoEdge AI Studio.
 
 ## Fonctionnalités principales
 ✅ Reconnaissance de mouvements en temps réel
+
 ✅ Affichage sur écran 7 segments
+
 ✅ Contrôle du buzzer et du moteur par l'utilisateur
 
 ## Matériel requis
