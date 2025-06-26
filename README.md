@@ -1,4 +1,4 @@
-# GestureFlow
+# NUCLEO-L152RE-LSM6DSO (GestureFlow)
 ## Reconnaissance de mouvement STM32
 
 Système de reconnaissance de 4 mouvements (Statique, Haut-Bas, Avant-Arrière, Cercle) 
